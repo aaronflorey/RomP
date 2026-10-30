@@ -114,17 +114,33 @@ package install. Builds containing Gaming Mode detection automatically open both
 the library and games fullscreen in a Gamescope desktop session, without changing
 your saved desktop preferences. Desktop Mode keeps its usual window behavior.
 
-1. In Desktop Mode, download the x86_64 AppImage from a release containing this
-   change (or build it with `make appimage`), and keep it in a permanent folder
-   under your home directory.
-2. In the file's Properties, allow it to run as a program. Launch it in Desktop
-   Mode first and connect to your RomM server.
-3. In Steam, choose **Add a Game → Add a Non-Steam Game**, browse to the AppImage
-   (show all files if needed), and add it.
-4. Run the Linux AppImage directly; leave Launch Options empty and forced Proton
-   compatibility disabled.
-5. Select a gamepad controller layout in Steam Input, then return to Gaming Mode
-   and launch RomP from your library.
+Once a release includes the installer, the quickest setup needs no terminal or
+external keyboard:
+
+1. Switch to **Desktop Mode** and open this page in the browser.
+2. Download [Install RomP](https://github.com/RompEmu/RomP/releases/latest/download/Install-RomP.desktop).
+   Open the downloaded file in Dolphin and approve **Execute** (or **Trust and
+   Launch**) if asked. If needed, enable **Is executable** in its Properties.
+3. Follow the installer prompts, then choose **Yes** to add RomP to Steam.
+   Steam may ask you to confirm adding the shortcut.
+4. Return to Gaming Mode and open **Library → Non-Steam → RomP**. Connect to
+   your RomM server; **Steam + X** opens the on-screen keyboard.
+
+The installer downloads the latest stable x86_64 AppImage and verifies its
+release SHA-512 checksum. It uses `~/Applications/RomP/RomP.AppImage` and adds a
+RomP application-menu entry. It needs internet access, Python 3, `kdialog`, and
+SteamOS's `steamos-add-to-steam` helper, supplied by SteamOS. No sudo or changes
+to the system partition are needed. It runs the AppImage with
+`--appimage-extract-and-run`, so FUSE is not required. Run the installer again to
+update; close RomP first and choose **No** when asked to add it to Steam again.
+Steam does not update this installation automatically.
+
+For a manual install, download the x86_64 AppImage from the
+[latest release](https://github.com/RompEmu/RomP/releases/latest), keep it in a
+permanent folder under your home directory, and allow execution in Properties.
+In Steam, choose **Add a Game → Add a Non-Steam Game** and browse to the AppImage
+(show all files if needed). Leave forced Proton compatibility disabled. Select
+a gamepad controller layout in Steam Input, then launch RomP in Gaming Mode.
 
 Automatic detection also works with local games launched using `--core` and
 `--rom`, and requests fullscreen from xemu and RPCS3. The existing in-game

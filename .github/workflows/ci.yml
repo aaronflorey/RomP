@@ -36,6 +36,8 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash \
             | bash -s -- 1.7.12 "$CARGO_HOME/bin"
       - run: make fmt-check deny machete typos workflows translations-check
+      - name: Check SteamOS installer
+        run: python3 -m unittest discover -s packaging/steamos -v
 
   check:
     name: Clippy and tests (${{ matrix.name }})
