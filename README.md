@@ -109,8 +109,9 @@ All emulators except xemu and RPCS3 are [libretro](https://www.libretro.com) cor
 ## SteamOS and Steam Deck
 
 The Linux AppImage is the portable option for SteamOS; it does not need a system
-package install. Builds containing the new `--game-mode` option can open both the
-library and games fullscreen without changing your saved desktop preferences.
+package install. Builds containing Gaming Mode detection automatically open both
+the library and games fullscreen in a Gamescope desktop session, without changing
+your saved desktop preferences. Desktop Mode keeps its usual window behavior.
 
 1. In Desktop Mode, download the x86_64 AppImage from a release containing this
    change (or build it with `make appimage`), and keep it in a permanent folder
@@ -119,18 +120,19 @@ library and games fullscreen without changing your saved desktop preferences.
    Mode first and connect to your RomM server.
 3. In Steam, choose **Add a Game → Add a Non-Steam Game**, browse to the AppImage
    (show all files if needed), and add it.
-4. Open the shortcut's Properties and set **Launch Options** to `--game-mode`.
-   Run the Linux AppImage directly; leave forced Proton compatibility disabled.
+4. Run the Linux AppImage directly; leave Launch Options empty and forced Proton
+   compatibility disabled.
 5. Select a gamepad controller layout in Steam Input, then return to Gaming Mode
    and launch RomP from your library.
 
-The flag also works with local games launched using `--core` and `--rom`, and
-requests fullscreen from xemu and RPCS3. The existing in-game fullscreen control
-still works. Steam may reserve the Guide button: use Esc (for example, mapped to
+Automatic detection also works with local games launched using `--core` and
+`--rom`, and requests fullscreen from xemu and RPCS3. The existing in-game
+fullscreen control still works. Steam may reserve the Guide button: use Esc
+(for example, mapped to
 a rear button in Steam Input) to open RomP's game menu. Steam's on-screen keyboard
 is available with Steam + X for text entry.
 
-If an AppImage fails to mount, try `--appimage-extract-and-run --game-mode` in
+If an AppImage fails to mount, try `--appimage-extract-and-run` in
 the shortcut's Launch Options. Keep the AppImage in a user-writable folder and
 leave SteamOS's system partition alone.
 
