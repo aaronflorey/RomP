@@ -1,3 +1,5 @@
+pub mod saves;
+
 use crate::external::{Asset, Emulator, Running};
 use std::path::{Path, PathBuf};
 

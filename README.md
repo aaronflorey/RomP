@@ -191,7 +191,16 @@ launching the game. Use firmware and keys dumped from your own console; none are
 Games should be uncompressed `.nsp`, `.xci`, or `.nro` files supported by Eden.
 
 Eden runs outside RomP's sandbox. Its portable `user` folder beside the installed
-executable holds firmware, keys, settings and saves, separately from other Eden
-installations. Saves are local only (not synced to RomM). Configure controllers
-and other emulator-specific options in Eden; RomP passes its fullscreen preference.
-macOS installation is not supported yet.
+executable holds firmware, keys and settings, separately from other Eden installations.
+Each game gets its own NAND in its RomP save folder. Saves and user profiles sync
+to RomM as an Eden ZIP before playing and after closing Eden, using the same conflict
+choices and backups as other saves. Offline changes sync when the server returns.
+A local working copy is still needed for playing. Firmware and keys are never uploaded.
+Save archives are limited to 1 GiB; SD-card/homebrew saves and save states are not synced.
+
+Old saves in the shared portable `user/nand` folder are preserved, not automatically
+assigned to games. To import one, close Eden and copy only that title's save directory
+into the game's `eden-nand/user/save/...` directory, preserving its account/title path.
+The old user profiles are copied automatically when the game's NAND is first created.
+Configure controllers and other emulator-specific options in Eden; RomP passes its
+fullscreen preference. macOS installation is not supported yet.
