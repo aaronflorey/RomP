@@ -667,7 +667,8 @@ pub async fn resolve_sram(
 
 pub fn games_with_saves(server_saves: &Path) -> Vec<i64> {
     let has_save = |dir: &Path| {
-        dir.join(SRAM_FILE).exists()
+        dir.join(crate::eden::saves::FILE).exists()
+            || dir.join(SRAM_FILE).exists()
             || dir.join(ARMSX2_CARD).exists()
             || !memory_cards(dir).is_empty()
             || !newest_ending(dir, DOS_SAVE).is_empty()

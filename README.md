@@ -34,7 +34,7 @@ Download the [latest release](https://github.com/RompEmu/RomP/releases/latest) o
 - **Your RomM library:** platforms, favorites, collections and recently played, with search, sorting and box art shaped like each console's.
 - **One click to play:** RomP installs the right emulator and BIOS files. Downloaded games play offline.
 - **Saves that follow you:** in-game saves and save states sync with RomM before and after you play. If both sides changed, you choose which to keep.
-- **Sandboxed emulators:** emulators are native code downloaded from the internet, and games are files from anywhere. Each game runs in its own locked-down process that can only write to that game's saves and its own temporary files, so a buggy or malicious emulator or ROM can't touch your other files or take RomP down with it. xemu and RPCS3 run outside the sandbox.
+- **Sandboxed emulators:** emulators are native code downloaded from the internet, and games are files from anywhere. Each game runs in its own locked-down process that can only write to that game's saves and its own temporary files, so a buggy or malicious emulator or ROM can't touch your other files or take RomP down with it. xemu, RPCS3 and Eden run outside the sandbox.
 - **RetroAchievements:** earn achievements as you play, with popups, leaderboards, and an achievement list in the game menu and on each game's page. Hardcore mode comes once RetroAchievements approves RomP, which it considers after an emulator has been public for six months. Only the app talks to RetroAchievements, never the sandboxed emulator.
 - **Many systems:** from the Atari 2600 to the PS3 and original Xbox, plus arcade and home computers. See [supported systems](#supported-systems).
 - **Controllers and multiplayer:** gamepads join as the next player, any key or button can be remapped, and the whole app works with a controller.
@@ -102,9 +102,10 @@ RomP downloads the emulator for each system the first time you play one of its g
 | Vectrex | Vecx |
 | Watara Supervision | Potator |
 | Microsoft Xbox | xemu |
+| Nintendo Switch (Linux and Windows, x86-64/ARM64) | Eden |
 | ZX Spectrum | Fuse |
 
-All emulators except xemu and RPCS3 are [libretro](https://www.libretro.com) cores. ARMSX2 and FAKE-08 aren't built by libretro, so RomP downloads them from RompEmu's own forks, which build them for each platform. Dolphin, PPSSPP, Flycast, Beetle PSX HW, Mupen64Plus-Next and the PS2 emulators draw through Vulkan when the computer has a working Vulkan driver, and through OpenGL otherwise. On macOS, Vulkan comes from the bundled [MoltenVK](https://github.com/KhronosGroup/MoltenVK). Some systems need BIOS files, which RomP takes from your RomM server's firmware. PS3 games need the PS3 system software (`PS3UPDAT.PUP`) in RomM's PS3 firmware, and play from a game folder or an ISO, or a zip or 7z of one.
+All emulators except xemu, RPCS3 and Eden are [libretro](https://www.libretro.com) cores. ARMSX2 and FAKE-08 aren't built by libretro, so RomP downloads them from RompEmu's own forks, which build them for each platform. Dolphin, PPSSPP, Flycast, Beetle PSX HW, Mupen64Plus-Next and the PS2 emulators draw through Vulkan when the computer has a working Vulkan driver, and through OpenGL otherwise. On macOS, Vulkan comes from the bundled [MoltenVK](https://github.com/KhronosGroup/MoltenVK). Some systems need BIOS files, which RomP takes from your RomM server's firmware. PS3 games need the PS3 system software (`PS3UPDAT.PUP`) in RomM's PS3 firmware, and play from a game folder or an ISO, or a zip or 7z of one.
 
 ## Running
 
@@ -179,3 +180,27 @@ A few things to keep in mind:
 ## License
 
 RomP is free software: you can redistribute it and/or modify it under the terms of the [GNU General Public License](LICENSE), version 3 or (at your option) any later version.
+
+### Nintendo Switch (Eden)
+
+RomP installs checksum-pinned Eden v0.2.1 on Linux and Windows (x86-64 or ARM64).
+Add your own `prod.keys`, optional `title.keys`, and a firmware dump named
+`firmware.zip` to the Switch platform's firmware in RomM. The zip must contain
+`.nca` files (a containing folder is fine). RomP downloads and installs these before
+launching the game. Use firmware and keys dumped from your own console; none are bundled.
+Games should be uncompressed `.nsp`, `.xci`, or `.nro` files supported by Eden.
+
+Eden runs outside RomP's sandbox. Its portable `user` folder beside the installed
+executable holds firmware, keys and settings, separately from other Eden installations.
+Each game gets its own NAND in its RomP save folder. Saves and user profiles sync
+to RomM as an Eden ZIP before playing and after closing Eden, using the same conflict
+choices and backups as other saves. Offline changes sync when the server returns.
+A local working copy is still needed for playing. Firmware and keys are never uploaded.
+Save archives are limited to 1 GiB; SD-card/homebrew saves and save states are not synced.
+
+Old saves in the shared portable `user/nand` folder are preserved, not automatically
+assigned to games. To import one, close Eden and copy only that title's save directory
+into the game's `eden-nand/user/save/...` directory, preserving its account/title path.
+The old user profiles are copied automatically when the game's NAND is first created.
+Configure controllers and other emulator-specific options in Eden; RomP passes its
+fullscreen preference. macOS installation is not supported yet.

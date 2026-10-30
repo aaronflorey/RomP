@@ -48,6 +48,18 @@ async fn sync_game(
     game: &GameSaves,
     core_version: Option<&str>,
 ) -> Result<SramOutcome, Error> {
+    if game.emulator == "eden" {
+        let dir = game.dir.clone();
+        tokio::task::spawn_blocking(move || {
+            match crate::eden::emulator(paths::cores_dir().join("eden")).installed() {
+                Some(exe) => crate::eden::saves::capture_after_play(&exe, &dir),
+                None => crate::eden::saves::capture(&dir),
+            }
+        })
+        .await
+        .map_err(|e| Error::Decode(e.to_string()))?
+        .map_err(|e| Error::Decode(format!("Could not pack Eden saves: {e}")))?;
+    }
     let last = store.lock().unwrap().in_game_save_record(game.rom_id);
     let sram = saves::sync_sram(client, device_id, game, last.as_ref()).await?;
     saves::remember_outcome(store, game, &sram);
@@ -102,8 +114,18 @@ impl Controller {
     }
 
     pub(super) fn game_saves(&self, detail: &GameDetail) -> Option<GameSaves> {
-        let core = core_for_platform(&detail.platform_slug)?;
         let dir = paths::game_save_dir(&paths::data_dir(), &self.server(), detail.id);
+        if detail.platform_slug == crate::eden::PLATFORM {
+            return Some(GameSaves {
+                rom_id: detail.id,
+                dir,
+                title: detail.title.clone(),
+                emulator: "eden".into(),
+                save_file: crate::eden::saves::FILE.into(),
+                save_emulator: "eden".into(),
+            });
+        }
+        let core = core_for_platform(&detail.platform_slug)?;
         if core.id == "melondsds" {
             if let Err(e) = crate::saves::adopt_desmume_saves(&dir) {
                 tracing::warn!("moving {}'s DeSmuME save to melonDS: {e}", detail.title);
@@ -168,6 +190,11 @@ impl Controller {
             on_ui(move |c| {
                 if let Err(e) = result {
                     tracing::warn!("resolving save conflict: {e}");
+                    if pending.detail.platform_slug == crate::eden::PLATFORM {
+                        c.preparing.set(false);
+                        return c
+                            .game_status(pending.detail.id, tr!("Couldn't sync saves: {e}.", e));
+                    }
                 }
                 c.start_game(pending.detail, pending.rom, pending.jit, pending.core);
             });
@@ -282,6 +309,56 @@ impl Controller {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn eden_sync_packs_offline_saves_and_uploads_under_eden() {
+        use crate::romm::client::tests::base_of;
+        use wiremock::matchers::{method, path, query_param};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/saves"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([])))
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/api/saves"))
+            .and(query_param("emulator", "eden"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "id": 1, "rom_id": 5, "file_name": "Switch Game.zip", "slot": "autosave",
+                "updated_at": "2026-10-30T12:00:00Z", "emulator": "eden"
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let dir = tempfile::tempdir().unwrap();
+        let save = dir
+            .path()
+            .join("eden-nand/user/save/account/title/progress");
+        std::fs::create_dir_all(save.parent().unwrap()).unwrap();
+        std::fs::write(save, b"offline progress").unwrap();
+        let game = GameSaves {
+            rom_id: 5,
+            dir: dir.path().to_path_buf(),
+            title: "Switch Game".into(),
+            emulator: "eden".into(),
+            save_file: crate::eden::saves::FILE.into(),
+            save_emulator: "eden".into(),
+        };
+        let store = Mutex::new(Store::open_in_memory().unwrap());
+        let client = Client::new(base_of(&server, "/")).with_token("t".into());
+        assert_eq!(
+            sync_game(&client, &store, "device", &game, None)
+                .await
+                .unwrap(),
+            SramOutcome::Uploaded
+        );
+        assert!(store.lock().unwrap().in_game_save_record(5).is_some());
+        let requests = server.received_requests().await.unwrap();
+        let upload = requests.iter().find(|r| r.method == "POST").unwrap();
+        let archive = std::fs::read(game.dir.join(crate::eden::saves::FILE)).unwrap();
+        assert!(upload.body.windows(archive.len()).any(|b| b == archive));
+    }
 
     #[test]
     fn conflict_text_names_both_times() {

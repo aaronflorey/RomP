@@ -58,6 +58,17 @@ impl Emulator {
             .map_err(|e| e.to_string())?;
         let asset = (self.pick)(&release.assets)
             .ok_or_else(|| tr::tr!("{name} has no download for this computer", name))?;
+        self.install_asset(http, &release.tag_name, asset).await
+    }
+
+    pub async fn install_asset(
+        &self,
+        http: &reqwest::Client,
+        version: &str,
+        asset: &Asset,
+    ) -> Result<PathBuf, String> {
+        let name = self.name;
+        let unreachable = |_| tr::tr!("Could not reach the download server for {name}", name);
         let bytes = http
             .get(&asset.browser_download_url)
             .send()
@@ -74,7 +85,7 @@ impl Emulator {
                 name
             ));
         }
-        let version_dir = self.dir.join(&release.tag_name);
+        let version_dir = self.dir.join(version);
         let file = asset.name.clone();
         let dir = version_dir.clone();
         tokio::task::spawn_blocking(move || unpack(&bytes, &dir, &file))
@@ -89,7 +100,7 @@ impl Emulator {
             ));
         }
         let manifest = Manifest {
-            version: release.tag_name.clone(),
+            version: version.to_string(),
             exe: exe
                 .strip_prefix(&self.dir)
                 .map_err(|e| e.to_string())?
@@ -268,6 +279,37 @@ pub fn launch(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn pinned_assets_use_the_same_verified_installer() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/emu.AppImage"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"binary".to_vec()))
+            .mount(&server)
+            .await;
+        let dir = tempfile::tempdir().unwrap();
+        let emulator = Emulator {
+            name: "Test",
+            dir: dir.path().to_path_buf(),
+            pick: |_| None,
+            exe_in: |dir, name| dir.join(name),
+        };
+        let mut asset = Asset {
+            name: "emu.AppImage".into(),
+            browser_download_url: format!("{}/emu.AppImage", server.uri()),
+            digest: None,
+        };
+        let http = reqwest::Client::new();
+        assert!(emulator.install_asset(&http, "v1", &asset).await.is_err());
+        assert!(emulator.installed().is_none());
+        asset.digest = Some(format!("sha256:{}", crate::cores::sha256_hex(b"binary")));
+        let exe = emulator.install_asset(&http, "v1", &asset).await.unwrap();
+        assert_eq!(std::fs::read(&exe).unwrap(), b"binary");
+        assert_eq!(emulator.installed(), Some(exe));
+    }
 
     #[test]
     fn a_download_must_match_the_digest_github_published() {

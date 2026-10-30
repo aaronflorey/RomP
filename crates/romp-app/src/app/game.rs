@@ -4,6 +4,7 @@ use crate::bios;
 use crate::cores::core_for_platform;
 use crate::details;
 use crate::download::DownloadError;
+use crate::eden;
 use crate::fetch::download_files;
 use crate::paths;
 use crate::play::{self, CoreIdentity, GameOptions};
@@ -35,6 +36,7 @@ fn load_image(path: &Path) -> Option<Image> {
 
 fn playable(platform_slug: &str) -> bool {
     core_for_platform(platform_slug).is_some()
+        || (platform_slug == eden::PLATFORM && eden::available())
         || platform_slug == xemu::PLATFORM
         || (platform_slug == rpcs3::PLATFORM && rpcs3::available())
 }
@@ -565,6 +567,9 @@ impl Controller {
         let Some(rom) = downloaded_path(&detail) else {
             return;
         };
+        if detail.platform_slug == eden::PLATFORM {
+            return self.play_with_eden(detail, rom);
+        }
         if detail.platform_slug == xemu::PLATFORM {
             return self.play_with_xemu(detail, rom);
         }
@@ -777,6 +782,111 @@ impl Controller {
             Err(e) => self.game_status(
                 detail.id,
                 tr!("Could not start {name}: {e}", name = "xemu", e),
+            ),
+        }
+    }
+
+    fn play_with_eden(&self, detail: GameDetail, rom: PathBuf) {
+        self.preparing.set(true);
+        self.game_status(detail.id, tr!("Getting ready…"));
+        let http = self.shared.http.clone();
+        let client = self.client.borrow().clone();
+        let offline = self.offline.get();
+        let game = self.game_saves(&detail).expect("Eden save descriptor");
+        let device = self.sync_device();
+        let store = self.shared.store.clone();
+        self.shared.rt.spawn(async move {
+            let id = detail.id;
+            let emulator = eden::emulator(paths::cores_dir().join("eden"));
+            let ready = async {
+                let exe = match emulator.installed() {
+                    Some(exe) => exe,
+                    None => {
+                        on_ui(move |c| c.game_status(id, tr!("Installing {name}…", name = "Eden")));
+                        eden::install(&emulator, &http).await?
+                    }
+                };
+                let system = paths::system_dir();
+                let mut missing = bios::missing(eden::PLATFORM, &system);
+                if !missing.is_empty() && !offline {
+                    if let Some(client) = &client {
+                        missing = bios::ensure(
+                            client,
+                            detail.platform_id,
+                            eden::PLATFORM,
+                            &system,
+                            &AtomicBool::new(false),
+                        )
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    }
+                }
+                if !missing.is_empty() {
+                    return Err(bios::missing_message(&missing));
+                }
+                let dir = game.dir.clone();
+                tokio::task::spawn_blocking(move || {
+                    eden::prepare(&exe, &system.join("eden"))?;
+                    eden::saves::capture_after_play(&exe, &dir).map_err(|e| e.to_string())?;
+                    Ok(exe)
+                })
+                .await
+                .map_err(|e| e.to_string())?
+            }
+            .await;
+            let sram = if ready.is_ok() && !offline {
+                if let (Some(client), Some(device)) = (&client, device) {
+                    let last = store.lock().unwrap().in_game_save_record(id);
+                    let result = saves::sync_sram(client, &device, &game, last.as_ref()).await;
+                    if let Ok(outcome) = &result {
+                        saves::remember_outcome(&store, &game, outcome);
+                    }
+                    Some(result)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            on_ui(move |c| {
+                if let Some(Err(e)) = &sram {
+                    if !matches!(e, Error::Unreachable) {
+                        c.preparing.set(false);
+                        return c.game_status(id, tr!("Couldn't sync saves: {e}.", e));
+                    }
+                }
+                c.launch_ready(detail, rom, false, ready, Vec::new(), sram);
+            });
+        });
+    }
+
+    fn launch_eden(&self, detail: GameDetail, rom: PathBuf, ready: Result<PathBuf, String>) {
+        self.preparing.set(false);
+        let exe = match ready {
+            Ok(exe) => exe,
+            Err(e) => return self.game_status(detail.id, e),
+        };
+        let id = detail.id;
+        let save_dir = paths::game_save_dir(&paths::data_dir(), &self.server(), id);
+        let capture_exe = exe.clone();
+        let on_exit = move |code: Option<i32>, log: Vec<String>| {
+            if let Err(e) = eden::saves::capture_after_play(&capture_exe, &save_dir) {
+                tracing::warn!("Packing Eden saves: {e}");
+            }
+            let _ = slint::invoke_from_event_loop(move || {
+                with_controller(|c| c.external_closed(id, "Eden", code, log));
+            });
+        };
+        match eden::launch(&exe, &rom, self.prefs.get().fullscreen, on_exit) {
+            Ok(running) => {
+                *self.running.borrow_mut() = Some(play::RunningGame::External(running));
+                self.game_status(detail.id, String::new());
+                self.record_play(detail.id);
+                *self.playing.borrow_mut() = Some(detail);
+            }
+            Err(e) => self.game_status(
+                detail.id,
+                tr!("Could not start {name}: {e}", name = "Eden", e),
             ),
         }
     }
@@ -995,6 +1105,19 @@ impl Controller {
     }
 
     pub(super) fn start_game(&self, detail: GameDetail, rom: PathBuf, jit: bool, core: PathBuf) {
+        if detail.platform_slug == eden::PLATFORM {
+            let dir = paths::game_save_dir(&paths::data_dir(), &self.server(), detail.id);
+            self.shared.rt.spawn(async move {
+                let ready = tokio::task::spawn_blocking(move || {
+                    eden::saves::prepare(&core, &dir).map_err(|e| e.to_string())?;
+                    Ok(core)
+                })
+                .await
+                .unwrap_or_else(|e| Err(e.to_string()));
+                on_ui(move |c| c.launch_eden(detail, rom, ready));
+            });
+            return;
+        }
         self.preparing.set(false);
         let save_dir = paths::game_save_dir(&paths::data_dir(), &self.server(), detail.id);
         let prefs = self.prefs.get();
