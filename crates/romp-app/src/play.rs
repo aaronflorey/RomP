@@ -104,6 +104,7 @@ pub fn run(
     jit: bool,
     vulkan: bool,
     smoke: Option<PathBuf>,
+    game_mode: bool,
 ) -> anyhow::Result<()> {
     let states = core
         .file_stem()
@@ -153,7 +154,7 @@ pub fn run(
             split_screens: false,
             gamepads: Rc::new(RefCell::new(Gamepads::new())),
             players: Rc::default(),
-            prefs: Preferences::default(),
+            prefs: Preferences::default().for_game_mode(game_mode),
             load_slot: None,
             auto_state: states,
             states,

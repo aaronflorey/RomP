@@ -17,6 +17,7 @@ mod eden;
 mod external;
 mod fetch;
 mod gamepads;
+mod gaming_mode;
 mod grid;
 mod i18n;
 mod identity;
@@ -115,8 +116,11 @@ fn main() -> anyhow::Result<()> {
     slint::BackendSelector::new()
         .with_winit_custom_application_handler(mouse::RawMouse)
         .select()?;
+    let game_mode = gaming_mode::active();
     match (args.core, args.rom) {
-        (Some(core), Some(rom)) => play::run(core, rom, args.jit, args.vulkan, args.smoke),
-        _ => app::run(),
+        (Some(core), Some(rom)) => {
+            play::run(core, rom, args.jit, args.vulkan, args.smoke, game_mode)
+        }
+        _ => app::run(game_mode),
     }
 }
