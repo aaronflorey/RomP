@@ -136,6 +136,7 @@ struct Controller {
     settings_timer: RefCell<Option<Timer>>,
     dialog: RefCell<Option<collections::DialogAction>>,
     prefs: Cell<crate::prefs::Preferences>,
+    game_mode: bool,
     mappings: Rc<RefCell<crate::mapping::Mappings>>,
     remap_device: RefCell<Option<String>>,
     remap_waiting: Cell<Option<u32>>,
@@ -171,7 +172,7 @@ fn open_store() -> rusqlite::Result<Store> {
     Ok(store)
 }
 
-pub fn run() -> anyhow::Result<()> {
+pub fn run(game_mode: bool) -> anyhow::Result<()> {
     crate::vulkan::start_probe();
     let shared = Shared {
         rt: Runtime::new()?,
@@ -244,6 +245,7 @@ pub fn run() -> anyhow::Result<()> {
         players: Rc::new(RefCell::new(players)),
         settings_timer: RefCell::new(None),
         prefs: Cell::new(prefs),
+        game_mode,
         mappings: Rc::new(RefCell::new(mappings)),
         remap_device: RefCell::new(None),
         remap_waiting: Cell::new(None),
@@ -272,7 +274,9 @@ pub fn run() -> anyhow::Result<()> {
     controller.start_navigation();
     controller.start();
     crate::scale::set_factor(prefs.scale_factor());
-    if let Some(p) = placement {
+    if game_mode {
+        ui.window().set_fullscreen(true);
+    } else if let Some(p) = placement {
         p.apply(ui.window());
     }
     ui.window().on_close_requested(|| {

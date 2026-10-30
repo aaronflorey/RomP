@@ -106,6 +106,38 @@ RomP downloads the emulator for each system the first time you play one of its g
 
 All emulators except xemu and RPCS3 are [libretro](https://www.libretro.com) cores. ARMSX2 and FAKE-08 aren't built by libretro, so RomP downloads them from RompEmu's own forks, which build them for each platform. Dolphin, PPSSPP, Flycast, Beetle PSX HW, Mupen64Plus-Next and the PS2 emulators draw through Vulkan when the computer has a working Vulkan driver, and through OpenGL otherwise. On macOS, Vulkan comes from the bundled [MoltenVK](https://github.com/KhronosGroup/MoltenVK). Some systems need BIOS files, which RomP takes from your RomM server's firmware. PS3 games need the PS3 system software (`PS3UPDAT.PUP`) in RomM's PS3 firmware, and play from a game folder or an ISO, or a zip or 7z of one.
 
+## SteamOS and Steam Deck
+
+The Linux AppImage is the portable option for SteamOS; it does not need a system
+package install. Builds containing the new `--game-mode` option can open both the
+library and games fullscreen without changing your saved desktop preferences.
+
+1. In Desktop Mode, download the x86_64 AppImage from a release containing this
+   change (or build it with `make appimage`), and keep it in a permanent folder
+   under your home directory.
+2. In the file's Properties, allow it to run as a program. Launch it in Desktop
+   Mode first and connect to your RomM server.
+3. In Steam, choose **Add a Game → Add a Non-Steam Game**, browse to the AppImage
+   (show all files if needed), and add it.
+4. Open the shortcut's Properties and set **Launch Options** to `--game-mode`.
+   Run the Linux AppImage directly; leave forced Proton compatibility disabled.
+5. Select a gamepad controller layout in Steam Input, then return to Gaming Mode
+   and launch RomP from your library.
+
+The flag also works with local games launched using `--core` and `--rom`, and
+requests fullscreen from xemu and RPCS3. The existing in-game fullscreen control
+still works. Steam may reserve the Guide button: use Esc (for example, mapped to
+a rear button in Steam Input) to open RomP's game menu. Steam's on-screen keyboard
+is available with Steam + X for text entry.
+
+If an AppImage fails to mount, try `--appimage-extract-and-run --game-mode` in
+the shortcut's Launch Options. Keep the AppImage in a user-writable folder and
+leave SteamOS's system partition alone.
+
+SteamOS hardware validation is still required, especially for Steam Input,
+audio, suspend/resume, switching between the library and emulator windows, and
+Nintendo DS's separate screen windows. This is not a Steam Deck Verified claim.
+
 ## Running
 
 Requires [rustup](https://rustup.rs) and CMake.

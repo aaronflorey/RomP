@@ -735,7 +735,7 @@ impl Controller {
                 )
             }
         };
-        let prefs = self.prefs.get();
+        let prefs = self.prefs.get().for_game_mode(self.game_mode);
         let pads = self.gamepads.borrow().connected().len();
         let config = xemu::LaunchConfig {
             bootrom,
@@ -857,7 +857,7 @@ impl Controller {
             Err(e) => return self.game_status(detail.id, e),
         };
         let home = rpcs3::Home(paths::data_dir().join("rpcs3"));
-        let prefs = self.prefs.get();
+        let prefs = self.prefs.get().for_game_mode(self.game_mode);
         let names: Vec<String> = self
             .gamepads
             .borrow()
@@ -997,7 +997,7 @@ impl Controller {
     pub(super) fn start_game(&self, detail: GameDetail, rom: PathBuf, jit: bool, core: PathBuf) {
         self.preparing.set(false);
         let save_dir = paths::game_save_dir(&paths::data_dir(), &self.server(), detail.id);
-        let prefs = self.prefs.get();
+        let prefs = self.prefs.get().for_game_mode(self.game_mode);
         let states = core_for_platform(&detail.platform_slug)
             .is_none_or(|core| crate::cores::saves_states(core.id));
         let reliable = states

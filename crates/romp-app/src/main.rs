@@ -71,6 +71,9 @@ struct Args {
     core: Option<PathBuf>,
     #[arg(long, requires = "core")]
     rom: Option<PathBuf>,
+    /// Open the library and games fullscreen for Steam Gaming Mode.
+    #[arg(long)]
+    game_mode: bool,
     #[arg(long)]
     jit: bool,
     #[arg(long)]
@@ -115,7 +118,9 @@ fn main() -> anyhow::Result<()> {
         .with_winit_custom_application_handler(mouse::RawMouse)
         .select()?;
     match (args.core, args.rom) {
-        (Some(core), Some(rom)) => play::run(core, rom, args.jit, args.vulkan, args.smoke),
-        _ => app::run(),
+        (Some(core), Some(rom)) => {
+            play::run(core, rom, args.jit, args.vulkan, args.smoke, args.game_mode)
+        }
+        _ => app::run(args.game_mode),
     }
 }

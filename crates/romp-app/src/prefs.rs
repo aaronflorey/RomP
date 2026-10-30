@@ -40,6 +40,14 @@ impl Default for Preferences {
 }
 
 impl Preferences {
+    /// Apply launch overrides to a copy so desktop choices stay intact.
+    pub fn for_game_mode(self, game_mode: bool) -> Self {
+        Self {
+            fullscreen: self.fullscreen || game_mode,
+            ..self
+        }
+    }
+
     pub fn from_json(text: Option<&str>) -> Self {
         let mut prefs: Self = text
             .and_then(|t| serde_json::from_str(t).ok())
@@ -69,6 +77,27 @@ impl Preferences {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn game_mode_overrides_fullscreen_without_changing_saved_choices() {
+        let saved = Preferences {
+            fullscreen: false,
+            volume: 40,
+            ..Preferences::default()
+        };
+        let launch = saved.for_game_mode(true);
+        assert!(launch.fullscreen);
+        assert!(!saved.fullscreen);
+        assert_eq!(
+            Preferences {
+                fullscreen: false,
+                ..launch
+            },
+            saved
+        );
+        assert_eq!(saved.for_game_mode(false), saved);
+        assert!(launch.for_game_mode(false).fullscreen);
+    }
 
     #[test]
     fn defaults_favour_a_calm_desktop_setup() {
