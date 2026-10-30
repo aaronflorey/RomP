@@ -13,6 +13,7 @@ mod credentials;
 mod details;
 mod dock;
 mod download;
+mod eden;
 mod external;
 mod fetch;
 mod gamepads;

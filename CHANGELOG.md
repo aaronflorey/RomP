@@ -6,6 +6,8 @@ All notable changes to Romp are listed here. The format follows [Keep a Changelo
 
 ### Added
 
+- Nintendo Switch games can launch in Eden on Linux and Windows (x86-64 and ARM64). RomP installs a checksum-verified Eden build and imports your `prod.keys`, optional `title.keys`, and `firmware.zip` from the Switch firmware in RomM. Eden keeps local saves in its own portable folder.
+
 - Games on more than one disc can change disc from the game menu, when the game asks for the next one. RomP opens the tray, swaps the disc and closes it, as you would on the console. Discs are ordered by the number in their names, as RomM orders them, so Disc 10 comes after Disc 2. Amiga games whose disks are each zipped get the same disk list, starting from the first disk, instead of starting from the largest zip.
 - Save states can be deleted from the game's page, including where you left off. Each asks first, keeps a backup in the game's save folder, and is deleted on RomM too, unless another device has saved a newer one there since.
 

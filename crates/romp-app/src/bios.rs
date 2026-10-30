@@ -75,6 +75,8 @@ pub fn placement(platform_slug: &str, file_name: &str) -> PathBuf {
         Path::new("fbneo").join(file_name)
     } else if platform_slug == crate::xemu::PLATFORM {
         Path::new(XEMU_DIR).join(file_name)
+    } else if platform_slug == crate::eden::PLATFORM {
+        Path::new("eden").join(file_name)
     } else if platform_slug == crate::rpcs3::PLATFORM {
         Path::new(RPCS3_DIR).join(file_name)
     } else if uses_pcsx2(platform_slug) {
@@ -144,6 +146,9 @@ pub fn ps3_dir(system_dir: &Path) -> PathBuf {
 }
 
 pub fn missing(platform_slug: &str, system_dir: &Path) -> Vec<String> {
+    if platform_slug == crate::eden::PLATFORM {
+        return crate::eden::missing(&system_dir.join("eden"));
+    }
     if platform_slug == crate::rpcs3::PLATFORM {
         return match crate::rpcs3::find_firmware(&ps3_dir(system_dir)) {
             Some(_) => Vec::new(),
@@ -254,6 +259,21 @@ mod tests {
     use crate::romm::client::tests::base_of;
     use wiremock::matchers::{method, path, query_param, query_param_is_missing};
     use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[test]
+    fn switch_firmware_and_keys_go_to_edens_import_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            placement("switch", "prod.keys"),
+            PathBuf::from("eden/prod.keys")
+        );
+        assert_eq!(missing("switch", dir.path()), ["prod.keys", "firmware.zip"]);
+        std::fs::create_dir_all(dir.path().join("eden")).unwrap();
+        for name in ["prod.keys", "firmware.zip"] {
+            std::fs::write(dir.path().join("eden").join(name), b"dump").unwrap();
+        }
+        assert!(missing("switch", dir.path()).is_empty());
+    }
 
     #[test]
     fn xbox_needs_a_boot_rom_and_a_bios_of_the_right_sizes() {

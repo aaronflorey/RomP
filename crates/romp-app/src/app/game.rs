@@ -4,6 +4,7 @@ use crate::bios;
 use crate::cores::core_for_platform;
 use crate::details;
 use crate::download::DownloadError;
+use crate::eden;
 use crate::fetch::download_files;
 use crate::paths;
 use crate::play::{self, CoreIdentity, GameOptions};
@@ -35,6 +36,7 @@ fn load_image(path: &Path) -> Option<Image> {
 
 fn playable(platform_slug: &str) -> bool {
     core_for_platform(platform_slug).is_some()
+        || (platform_slug == eden::PLATFORM && eden::available())
         || platform_slug == xemu::PLATFORM
         || (platform_slug == rpcs3::PLATFORM && rpcs3::available())
 }
@@ -565,6 +567,9 @@ impl Controller {
         let Some(rom) = downloaded_path(&detail) else {
             return;
         };
+        if detail.platform_slug == eden::PLATFORM {
+            return self.play_with_eden(detail, rom);
+        }
         if detail.platform_slug == xemu::PLATFORM {
             return self.play_with_xemu(detail, rom);
         }
@@ -777,6 +782,79 @@ impl Controller {
             Err(e) => self.game_status(
                 detail.id,
                 tr!("Could not start {name}: {e}", name = "xemu", e),
+            ),
+        }
+    }
+
+    fn play_with_eden(&self, detail: GameDetail, rom: PathBuf) {
+        self.preparing.set(true);
+        self.game_status(detail.id, tr!("Getting ready…"));
+        let http = self.shared.http.clone();
+        let client = self.client.borrow().clone();
+        let offline = self.offline.get();
+        self.shared.rt.spawn(async move {
+            let id = detail.id;
+            let emulator = eden::emulator(paths::cores_dir().join("eden"));
+            let ready = async {
+                let exe = match emulator.installed() {
+                    Some(exe) => exe,
+                    None => {
+                        on_ui(move |c| c.game_status(id, tr!("Installing {name}…", name = "Eden")));
+                        eden::install(&emulator, &http).await?
+                    }
+                };
+                let system = paths::system_dir();
+                let mut missing = bios::missing(eden::PLATFORM, &system);
+                if !missing.is_empty() && !offline {
+                    if let Some(client) = &client {
+                        missing = bios::ensure(
+                            client,
+                            detail.platform_id,
+                            eden::PLATFORM,
+                            &system,
+                            &AtomicBool::new(false),
+                        )
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    }
+                }
+                if !missing.is_empty() {
+                    return Err(bios::missing_message(&missing));
+                }
+                tokio::task::spawn_blocking(move || {
+                    eden::prepare(&exe, &system.join("eden"))?;
+                    Ok(exe)
+                })
+                .await
+                .map_err(|e| e.to_string())?
+            }
+            .await;
+            on_ui(move |c| c.launch_eden(detail, rom, ready));
+        });
+    }
+
+    fn launch_eden(&self, detail: GameDetail, rom: PathBuf, ready: Result<PathBuf, String>) {
+        self.preparing.set(false);
+        let exe = match ready {
+            Ok(exe) => exe,
+            Err(e) => return self.game_status(detail.id, e),
+        };
+        let id = detail.id;
+        let on_exit = move |code: Option<i32>, log: Vec<String>| {
+            let _ = slint::invoke_from_event_loop(move || {
+                with_controller(|c| c.external_closed(id, "Eden", code, log));
+            });
+        };
+        match eden::launch(&exe, &rom, self.prefs.get().fullscreen, on_exit) {
+            Ok(running) => {
+                *self.running.borrow_mut() = Some(play::RunningGame::External(running));
+                self.game_status(detail.id, String::new());
+                self.record_play(detail.id);
+                *self.playing.borrow_mut() = Some(detail);
+            }
+            Err(e) => self.game_status(
+                detail.id,
+                tr!("Could not start {name}: {e}", name = "Eden", e),
             ),
         }
     }
