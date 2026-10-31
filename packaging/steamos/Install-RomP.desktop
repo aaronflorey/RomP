@@ -2,6 +2,6 @@
 Type=Application
 Name=Install RomP
 Comment=Download RomP and add it to Steam
-Exec=bash -c "set -e; work=\\$(mktemp -d); trap 'rm -rf \\"\\$work\\"' EXIT; if curl --fail --location --show-error --output \\"\\$work/install.py\\" https://github.com/RompEmu/RomP/releases/latest/download/install.py; then python3 \\"\\$work/install.py\\"; else kdialog --title \\"Install RomP\\" --error \\"Could not download the installer. Check your internet connection and try again.\\"; exit 1; fi"
+Exec=bash -c "set -e; work=\\$(mktemp -d); trap 'rm -rf \\"\\$work\\"' EXIT; if curl --fail --location --show-error --output \\"\\$work/install.py\\" https://raw.githubusercontent.com/aaronflorey/RomP/main/packaging/steamos/install.py; then python3 \\"\\$work/install.py\\"; else kdialog --title \\"Install RomP\\" --error \\"Could not download the installer. Check your internet connection and try again.\\"; exit 1; fi"
 Icon=applications-games
 Terminal=false

@@ -114,11 +114,10 @@ package install. Builds containing Gaming Mode detection automatically open both
 the library and games fullscreen in a Gamescope desktop session, without changing
 your saved desktop preferences. Desktop Mode keeps its usual window behavior.
 
-Once a release includes the installer, the quickest setup needs no terminal or
-external keyboard:
+The quickest setup needs no terminal or external keyboard:
 
 1. Switch to **Desktop Mode** and open this page in the browser.
-2. Download [Install RomP](https://github.com/RompEmu/RomP/releases/latest/download/Install-RomP.desktop).
+2. Download [Install RomP](https://raw.githubusercontent.com/aaronflorey/RomP/main/packaging/steamos/Install-RomP.desktop).
    Open the downloaded file in Dolphin and approve **Execute** (or **Trust and
    Launch**) if asked. If needed, enable **Is executable** in its Properties.
 3. Follow the installer prompts, then choose **Yes** to add RomP to Steam.

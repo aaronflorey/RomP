@@ -27,10 +27,14 @@ impl Keychain {
 
 impl TokenStore for Keychain {
     fn load(&self, server: &str) -> Option<String> {
-        keyring::Entry::new(self.service, server)
-            .ok()?
-            .get_password()
-            .ok()
+        match keyring::Entry::new(self.service, server).and_then(|entry| entry.get_password()) {
+            Ok(token) => Some(token),
+            Err(keyring::Error::NoEntry) => None,
+            Err(error) => {
+                tracing::warn!(service = self.service, %error, "could not read saved sign-in");
+                None
+            }
+        }
     }
 
     fn save(&self, server: &str, token: &str) -> Result<(), String> {
