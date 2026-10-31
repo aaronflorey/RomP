@@ -169,6 +169,9 @@ fn run(args: &Args, frontend: &mut Frontend, link: &Link) -> anyhow::Result<()> 
         &sys.valid_extensions,
         archive::opens_zips(&args.core),
     )?;
+    if archive::raw_psx_disc(&args.core, &rom.effective_path) {
+        warn!(rom = %rom.effective_path.display(), "PS1 raw track selected without a disc descriptor; disc layout and audio tracks may be missing. Add the original .cue/.toc/.ccd and all referenced tracks to this game's files in RomM, then download the complete disc set and launch its descriptor (or use a complete .chd/.pbp image).");
+    }
     if !archive::plays(&sys.valid_extensions, &rom.effective_path) {
         let ext = rom
             .effective_path

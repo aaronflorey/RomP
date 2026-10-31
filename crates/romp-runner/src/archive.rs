@@ -27,6 +27,17 @@ pub fn opens_zips(core: &Path) -> bool {
         .is_some_and(|id| OPENS_ZIPS.contains(&id))
 }
 
+/// A raw PS1 track omits the disc layout and audio-track metadata carried by its descriptor.
+pub fn raw_psx_disc(core: &Path, rom: &Path) -> bool {
+    core.file_stem()
+        .and_then(|s| s.to_str())
+        .is_some_and(|id| matches!(id, "mednafen_psx_hw_libretro" | "mednafen_psx_libretro"))
+        && rom
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("bin") || ext.eq_ignore_ascii_case("img"))
+}
+
 pub fn open_rom(
     rom_path: &Path,
     session_id: &str,
@@ -796,6 +807,23 @@ mod tests {
         let rom = open_rom(&archive, "test-atari-zip", true, "xfd|atr|zip|xex", false).unwrap();
         assert_eq!(rom.effective_path.file_name().unwrap(), "Game - Disk 1.atr");
         assert_eq!(std::fs::read(&rom.effective_path).unwrap(), b"disk one");
+    }
+
+    #[test]
+    fn raw_ps1_tracks_warn_without_warning_for_carts_or_complete_disc_formats() {
+        let psx = Path::new("/cores/mednafen_psx_hw_libretro.dll");
+        for name in ["Game.bin", "Game.BIN", "Game.img"] {
+            assert!(raw_psx_disc(psx, Path::new(name)), "{name}");
+        }
+        for name in [
+            "Game.cue", "Game.toc", "Game.ccd", "Game.chd", "Game.pbp", "Game.m3u",
+        ] {
+            assert!(!raw_psx_disc(psx, Path::new(name)), "{name}");
+        }
+        assert!(!raw_psx_disc(
+            Path::new("/cores/genesis_plus_gx_libretro.so"),
+            Path::new("Game.bin")
+        ));
     }
 
     #[test]
