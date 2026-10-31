@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the latest RomP AppImage without modifying SteamOS or Steam's files."""
+"""Install the nightly RomP AppImage without modifying SteamOS or Steam's files."""
 
 import hashlib
 import json
@@ -40,11 +40,11 @@ def install():
         raise RuntimeError("SteamOS's steamos-add-to-steam helper was not found.")
 
     subprocess.run(["kdialog", "--title", "Install RomP", "--msgbox",
-                    "RomP will download the latest stable release to ~/Applications/RomP. "
+                    "RomP will download the latest nightly build to ~/Applications/RomP. "
                     "An existing installation there will be updated. Close RomP before continuing. "
                     "No password is needed. The download may take a few minutes."], check=True)
     request = urllib.request.Request(
-        "https://api.github.com/repos/RompEmu/RomP/releases/latest",
+        "https://api.github.com/repos/RompEmu/RomP/releases/tags/nightly",
         headers={"Accept": "application/vnd.github+json", "User-Agent": "RomP-installer"},
     )
     with urllib.request.urlopen(request, timeout=60) as response:
@@ -52,7 +52,7 @@ def install():
     assets = {a["name"]: a["browser_download_url"] for a in release["assets"]}
     images = [name for name in assets if name.endswith("-x86_64.AppImage")]
     if len(images) != 1 or images[0] + ".sha512" not in assets:
-        raise RuntimeError("The latest release has no x86_64 AppImage and checksum.")
+        raise RuntimeError("The nightly release has no x86_64 AppImage and checksum.")
     name = images[0]
     folder = Path.home() / "Applications" / "RomP"
     folder.mkdir(parents=True, exist_ok=True)

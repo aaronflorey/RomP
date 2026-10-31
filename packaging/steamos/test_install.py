@@ -30,8 +30,8 @@ def desktop_args(command):
 
 class InstallerTests(unittest.TestCase):
     def run_install(self, home, corrupt=False, add=True):
-        name = 'RomP-1.0-x86_64.AppImage'
-        url = install.REPO + '/releases/download/v1.0/'
+        name = 'RomP-nightly-x86_64.AppImage'
+        url = install.REPO + '/releases/download/nightly/'
         release = {'assets': [{'name': n, 'browser_download_url': url + n}
                               for n in (name, name + '.sha512')]}
         payload = b'appimage fixture'
@@ -52,10 +52,13 @@ class InstallerTests(unittest.TestCase):
              patch.object(install.shutil, 'which', return_value='/usr/bin/steamos-add-to-steam'), \
              patch.object(install.Path, 'home', return_value=home), \
              patch.dict(install.os.environ, {'XDG_DATA_HOME': str(home / 'data')}), \
-             patch.object(install.urllib.request, 'urlopen', return_value=io.BytesIO(json.dumps(release).encode())), \
+             patch.object(install.urllib.request, 'urlopen', return_value=io.BytesIO(json.dumps(release).encode())) as fetch, \
              patch.object(install, 'download', side_effect=download), \
              patch.object(install.subprocess, 'run', side_effect=run) as calls:
             install.install()
+            fetch.assert_called_once()
+            self.assertEqual(fetch.call_args.args[0].full_url,
+                             'https://api.github.com/repos/RompEmu/RomP/releases/tags/nightly')
             return calls
 
     def test_install_and_update_without_duplicate(self):

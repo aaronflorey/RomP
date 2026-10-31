@@ -125,7 +125,7 @@ The quickest setup needs no terminal or external keyboard:
 4. Return to Gaming Mode and open **Library → Non-Steam → RomP**. Connect to
    your RomM server; **Steam + X** opens the on-screen keyboard.
 
-The installer downloads the latest stable x86_64 AppImage and verifies its
+The installer downloads the latest nightly x86_64 AppImage and verifies its
 release SHA-512 checksum. It uses `~/Applications/RomP/RomP.AppImage` and adds a
 RomP application-menu entry. It needs internet access, Python 3, `kdialog`, and
 SteamOS's `steamos-add-to-steam` helper, supplied by SteamOS. No sudo or changes
@@ -135,7 +135,7 @@ update; close RomP first and choose **No** when asked to add it to Steam again.
 Steam does not update this installation automatically.
 
 For a manual install, download the x86_64 AppImage from the
-[latest release](https://github.com/RompEmu/RomP/releases/latest), keep it in a
+[nightly build](https://github.com/RompEmu/RomP/releases/tag/nightly), keep it in a
 permanent folder under your home directory, and allow execution in Properties.
 In Steam, choose **Add a Game → Add a Non-Steam Game** and browse to the AppImage
 (show all files if needed). Leave forced Proton compatibility disabled. Select
