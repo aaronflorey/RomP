@@ -1,0 +1,4 @@
+- [ ] SteamOS: ui is stuck at 300%, can’t change it
+- [ ] SteamOS: opening a game page, can’t navigate
+- [ ] SteamOS: open a game page, cant scroll using d-pax or thumbsticks or touchscreen
+- [ ] Windows: started a ps1 game, and it was running at 0.1FPS. unsure why.
