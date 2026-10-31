@@ -194,18 +194,31 @@ pub async fn ensure(
 ) -> Result<Vec<String>, DownloadError> {
     let list = list_firmware(client, Some(platform_id), platform_slug, cancel).await?;
     let attempted: Vec<i64> = list.iter().map(|fw| fw.id).collect();
-    place(client, list, platform_slug, system_dir, cancel).await?;
-    let wanted: Vec<&str> = unmet(platform_slug, system_dir).concat();
+    let mut unavailable = place(client, list, platform_slug, system_dir, cancel).await?;
+    let wanted: Vec<String> = if platform_slug == crate::eden::PLATFORM {
+        missing(platform_slug, system_dir)
+    } else {
+        unmet(platform_slug, system_dir)
+            .concat()
+            .into_iter()
+            .map(str::to_string)
+            .collect()
+    };
     if !wanted.is_empty() {
         let elsewhere = list_firmware(client, None, platform_slug, cancel)
             .await?
             .into_iter()
             .filter(|fw| {
                 !attempted.contains(&fw.id)
-                    && wanted.iter().any(|w| w.eq_ignore_ascii_case(&fw.file_name))
+                    && wanted.iter().any(|w| {
+                        w.eq_ignore_ascii_case(&fw.file_name)
+                            || (platform_slug == crate::eden::PLATFORM
+                                && w == "firmware.zip"
+                                && crate::eden::is_firmware_archive(&fw.file_name))
+                    })
             })
             .collect();
-        place(client, elsewhere, platform_slug, system_dir, cancel).await?;
+        unavailable.extend(place(client, elsewhere, platform_slug, system_dir, cancel).await?);
     }
     let missing = missing(platform_slug, system_dir);
     if !missing.is_empty() {
@@ -215,6 +228,9 @@ pub async fn ensure(
             ?missing,
             "required BIOS still missing after firmware search"
         );
+        if !unavailable.is_empty() {
+            return Err(DownloadError::FirmwareUnavailable(unavailable));
+        }
     }
     Ok(missing)
 }
@@ -240,7 +256,8 @@ async fn place(
     platform_slug: &str,
     system_dir: &Path,
     cancel: &AtomicBool,
-) -> Result<(), DownloadError> {
+) -> Result<Vec<String>, DownloadError> {
+    let mut unavailable = Vec::new();
     for fw in list {
         if cancel.load(Ordering::SeqCst) {
             return Err(DownloadError::Cancelled);
@@ -272,9 +289,10 @@ async fn place(
             if !matches!(error, DownloadError::Network(Error::Status(404))) {
                 return Err(error);
             }
+            unavailable.push(fw.file_name);
         }
     }
-    Ok(())
+    Ok(unavailable)
 }
 
 #[cfg(test)]
@@ -575,7 +593,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unavailable_content_is_reported_as_still_missing_without_retrying() {
+    async fn unavailable_content_identifies_the_firmware_without_retrying() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/api/firmware"))
@@ -592,13 +610,141 @@ mod tests {
             .await;
         let dir = tempfile::tempdir().unwrap();
         let client = Client::new(base_of(&server, "/"));
-        assert_eq!(
-            ensure(&client, 9, "lynx", dir.path(), &AtomicBool::new(false))
-                .await
-                .unwrap(),
-            ["lynxboot.img"]
+        let error = ensure(&client, 9, "lynx", dir.path(), &AtomicBool::new(false))
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(&error, DownloadError::FirmwareUnavailable(names) if names == &["lynxboot.img"])
         );
+        assert!(error.to_string().contains("404"));
+        assert!(error.to_string().contains("Restore or re-upload"));
         assert!(!dir.path().join("lynxboot.img").exists());
+    }
+
+    #[tokio::test]
+    async fn versioned_switch_firmware_is_downloaded_and_installed_after_server_recovery() {
+        use std::io::Write;
+        let server = MockServer::start().await;
+        let listing = serde_json::json!([
+            {"id": 2, "platform_id": 22, "file_name": "Firmware.18.0.1.zip"}
+        ]);
+        let client = Client::new(base_of(&server, "/"));
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("eden");
+        std::fs::create_dir(&source).unwrap();
+        std::fs::write(source.join("prod.keys"), "master_key_00 = 0123abcd").unwrap();
+        Mock::given(method("GET"))
+            .and(path("/api/firmware"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&listing))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/api/firmware/2/content/Firmware.18.0.1.zip"))
+            .respond_with(ResponseTemplate::new(404))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let error = ensure(&client, 22, "switch", dir.path(), &AtomicBool::new(false))
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("Firmware.18.0.1.zip"));
+        assert_eq!(missing("switch", dir.path()), ["firmware.zip"]);
+        server.reset().await;
+
+        let name = "0123456789abcdef0123456789abcdef.nca";
+        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        zip.start_file(name, zip::write::SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(b"nca").unwrap();
+        let archive = zip.finish().unwrap().into_inner();
+        Mock::given(method("GET"))
+            .and(path("/api/firmware"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&listing))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/api/firmware/2/content/Firmware.18.0.1.zip"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(archive.as_slice()))
+            .expect(1)
+            .mount(&server)
+            .await;
+        assert!(
+            ensure(&client, 22, "switch", dir.path(), &AtomicBool::new(false))
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        let exe = dir.path().join("emulator/eden");
+        crate::eden::prepare(&exe, &source).unwrap();
+        assert_eq!(
+            std::fs::read(
+                dir.path()
+                    .join("emulator/user/nand/system/Contents/registered")
+                    .join(name)
+            )
+            .unwrap(),
+            b"nca"
+        );
+
+        server.reset().await;
+        Mock::given(method("GET"))
+            .and(path("/api/firmware"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&listing))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/api/firmware/2/content/Firmware.18.0.1.zip"))
+            .respond_with(ResponseTemplate::new(404))
+            .expect(1)
+            .mount(&server)
+            .await;
+        std::fs::remove_file(source.join("Firmware.18.0.1.zip")).unwrap();
+        std::fs::write(source.join("firmware.zip"), &archive).unwrap();
+        assert!(
+            ensure(&client, 22, "switch", dir.path(), &AtomicBool::new(false))
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        crate::eden::prepare(&exe, &source).unwrap();
+    }
+
+    #[tokio::test]
+    async fn versioned_switch_firmware_can_be_found_under_another_platform() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/firmware"))
+            .and(query_param("platform_id", "22"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([])))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/api/firmware"))
+            .and(query_param_is_missing("platform_id"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([
+                {"id": 2, "platform_id": 99, "file_name": "Firmware.18.0.1.zip"},
+                {"id": 3, "platform_id": 99, "file_name": "unrelated.zip"}
+            ])))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/api/firmware/2/content/Firmware.18.0.1.zip"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("firmware"))
+            .expect(1)
+            .mount(&server)
+            .await;
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("eden")).unwrap();
+        std::fs::write(dir.path().join("eden/prod.keys"), b"keys").unwrap();
+        let client = Client::new(base_of(&server, "/"));
+        assert!(
+            ensure(&client, 22, "switch", dir.path(), &AtomicBool::new(false))
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(!dir.path().join("eden/unrelated.zip").exists());
+        assert_eq!(server.received_requests().await.unwrap().len(), 3);
     }
 
     #[tokio::test]

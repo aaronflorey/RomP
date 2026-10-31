@@ -234,7 +234,8 @@ RomP is free software: you can redistribute it and/or modify it under the terms 
 
 RomP installs checksum-pinned Eden v0.2.1 on Linux and Windows (x86-64 or ARM64).
 Add your own `prod.keys`, optional `title.keys`, and a firmware dump named
-`firmware.zip` to the Switch platform's firmware in RomM. The zip must contain
+`firmware.zip` or a single versioned dump such as `Firmware.18.0.1.zip` to the
+Switch platform's firmware in RomM. The zip must contain
 `.nca` files (a containing folder is fine). RomP downloads and installs these before
 launching the game. Use firmware and keys dumped from your own console; none are bundled.
 Games should be uncompressed `.nsp`, `.xci`, or `.nro` files supported by Eden.

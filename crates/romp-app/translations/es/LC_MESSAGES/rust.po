@@ -910,6 +910,14 @@ msgstr "El servidor envió una ruta de archivo no válida"
 msgid "This copy is in {0}'s own format ({1}), which RomP can't play. A {2} copy of the game would play."
 msgstr ""
 
+#: crates/romp-app/src/download.rs
+msgid "Required firmware is still missing. RomM lists these files but returned 404 when downloading them: {}. Restore or re-upload them in this platform's firmware in RomM, then try again."
+msgstr "Sigue faltando el firmware necesario. RomM muestra estos archivos, pero devolvió un error 404 al descargarlos: {}. Restáuralos o vuelve a subirlos al firmware de esta plataforma en RomM e inténtalo de nuevo."
+
+#: crates/romp-app/src/eden.rs
+msgid "Several Switch firmware archives are available in {}. Rename the one to use to firmware.zip in that folder."
+msgstr "Hay varios archivos de firmware de Switch en {}. Renombra el que quieras usar como firmware.zip en esa carpeta."
+
 #: crates/romp-app/src/external.rs
 msgid "Could not reach GitHub to download {name}"
 msgstr "No se pudo conectar a GitHub para descargar {name}"

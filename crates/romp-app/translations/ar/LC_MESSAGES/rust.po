@@ -938,6 +938,14 @@ msgstr "الخادم أرسل مسار ملف غير صالح"
 msgid "This copy is in {0}'s own format ({1}), which RomP can't play. A {2} copy of the game would play."
 msgstr ""
 
+#: crates/romp-app/src/download.rs
+msgid "Required firmware is still missing. RomM lists these files but returned 404 when downloading them: {}. Restore or re-upload them in this platform's firmware in RomM, then try again."
+msgstr "لا تزال ملفات البرنامج الثابت المطلوبة مفقودة. يعرض RomM هذه الملفات لكنه أعاد الخطأ 404 عند تنزيلها: {}. استعدها أو ارفعها مجددًا ضمن ملفات البرنامج الثابت لهذه المنصة في RomM، ثم حاول مرة أخرى."
+
+#: crates/romp-app/src/eden.rs
+msgid "Several Switch firmware archives are available in {}. Rename the one to use to firmware.zip in that folder."
+msgstr "توجد عدة أرشيفات للبرنامج الثابت لجهاز Switch في {}. أعد تسمية الأرشيف الذي تريد استخدامه إلى firmware.zip في ذلك المجلد."
+
 #: crates/romp-app/src/external.rs
 msgid "Could not reach GitHub to download {name}"
 msgstr "تعذر الوصول إلى GitHub للتنزيل {name}"

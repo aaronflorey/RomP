@@ -910,6 +910,14 @@ msgstr "Der Server hat einen ungültigen Dateipfad gesendet"
 msgid "This copy is in {0}'s own format ({1}), which RomP can't play. A {2} copy of the game would play."
 msgstr ""
 
+#: crates/romp-app/src/download.rs
+msgid "Required firmware is still missing. RomM lists these files but returned 404 when downloading them: {}. Restore or re-upload them in this platform's firmware in RomM, then try again."
+msgstr "Die erforderliche Firmware fehlt weiterhin. RomM listet diese Dateien auf, hat beim Herunterladen aber den Fehler 404 zurückgegeben: {}. Stelle sie in der Firmware dieser Plattform in RomM wieder her oder lade sie erneut hoch und versuche es noch einmal."
+
+#: crates/romp-app/src/eden.rs
+msgid "Several Switch firmware archives are available in {}. Rename the one to use to firmware.zip in that folder."
+msgstr "In {} sind mehrere Switch-Firmware-Archive vorhanden. Benenne das gewünschte Archiv in diesem Ordner in firmware.zip um."
+
 #: crates/romp-app/src/external.rs
 msgid "Could not reach GitHub to download {name}"
 msgstr "GitHub konnte nicht erreicht werden, um {name} herunterzuladen"

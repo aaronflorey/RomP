@@ -15,6 +15,7 @@ pub enum DownloadError {
     UnsafePath,
     Unpack(String),
     Foreign(Foreign),
+    FirmwareUnavailable(Vec<String>),
 }
 
 /// A game kept in another emulator's own format, which no core RomP runs can read.
@@ -40,6 +41,10 @@ impl std::fmt::Display for DownloadError {
                 found.owner,
                 found.ext,
                 found.instead
+            )),
+            Self::FirmwareUnavailable(names) => f.write_str(&tr!(
+                "Required firmware is still missing. RomM lists these files but returned 404 when downloading them: {}. Restore or re-upload them in this platform's firmware in RomM, then try again.",
+                names.join("; ")
             )),
         }
     }

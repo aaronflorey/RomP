@@ -444,6 +444,7 @@ impl Controller {
                 }
             }
             let mut missing = Vec::new();
+            let mut bios_error = None;
             if result.is_ok() {
                 if let Some(cover) = detail.cover_large.as_deref() {
                     let _ = covers.ensure_large(&client, id, cover).await;
@@ -464,11 +465,14 @@ impl Controller {
                     Ok(missing) => missing,
                     Err(e) => {
                         tracing::warn!("fetching BIOS for {id}: {e}");
+                        if matches!(e, DownloadError::FirmwareUnavailable(_)) {
+                            bios_error = Some(e.to_string());
+                        }
                         bios::missing(&detail.platform_slug, &system)
                     }
                 };
             }
-            on_ui(move |c| c.download_finished(id, result, missing, fetched));
+            on_ui(move |c| c.download_finished(id, result, missing, bios_error, fetched));
         });
     }
 
@@ -492,6 +496,7 @@ impl Controller {
         id: i64,
         result: Result<PathBuf, DownloadError>,
         missing: Vec<String>,
+        bios_error: Option<String>,
         fetched: bool,
     ) {
         let origin = self
@@ -515,7 +520,9 @@ impl Controller {
                     .lock()
                     .unwrap()
                     .set_local_path(id, Some(&path.to_string_lossy()));
-                if missing.is_empty() {
+                if let Some(error) = bios_error {
+                    error
+                } else if missing.is_empty() {
                     String::new()
                 } else {
                     bios::missing_message(&missing)
@@ -1052,6 +1059,12 @@ impl Controller {
         let core = match core_path {
             Ok(path) => path,
             Err(e) => {
+                tracing::warn!(
+                    rom_id = detail.id,
+                    platform_slug = %detail.platform_slug,
+                    error = %e,
+                    "game preparation failed"
+                );
                 self.preparing.set(false);
                 return self.game_status(detail.id, e);
             }
