@@ -399,9 +399,6 @@ mod tests {
         draw();
         navigate_controls(ui.window(), A);
         assert_eq!(plays.get(), 1, "initial confirm retains the primary action");
-        for _ in 0..3 {
-            navigate_controls(ui.window(), DOWN);
-        }
         navigate_controls(ui.window(), A);
         assert_eq!(plays.get(), 2, "confirm activates focused Play");
         navigate_controls(ui.window(), DOWN);
@@ -447,21 +444,81 @@ mod tests {
             "mouse-emulated touchscreen swipe scrolls the page"
         );
         assert_eq!(plays.get(), 2, "a swipe must not activate a game action");
+        ui.set_screen(SCREEN_LIBRARY);
+        draw();
+        ui.set_game_downloaded(false);
+        ui.set_game_can_download(true);
+        let downloads = std::rc::Rc::new(std::cell::Cell::new(0));
+        let count = downloads.clone();
+        ui.on_download_game(move || count.set(count.get() + 1));
+        ui.set_screen(SCREEN_GAME);
+        draw();
+        navigate_controls(ui.window(), A);
+        assert_eq!(
+            downloads.get(),
+            1,
+            "initial focus activates Download for a server game"
+        );
+        ui.set_screen(SCREEN_LIBRARY);
+        draw();
+        ui.set_game_busy(true);
+        let cancels = std::rc::Rc::new(std::cell::Cell::new(0));
+        let count = cancels.clone();
+        ui.on_cancel_download(move || count.set(count.get() + 1));
+        ui.set_screen(SCREEN_GAME);
+        draw();
+        navigate_controls(ui.window(), A);
+        assert_eq!(
+            cancels.get(),
+            1,
+            "initial focus activates Cancel for an active transfer"
+        );
 
         ui.set_screen(SCREEN_SETTINGS);
         ui.set_settings_section(0);
         ui.set_pref_ui_scale(2);
         draw();
-        // Two breadcrumb controls, six tabs, then three switches, volume and scale.
-        for _ in 0..13 {
+        // Focus starts on General: five more tabs, three switches, volume and scale.
+        for _ in 0..9 {
             navigate_controls(ui.window(), DOWN);
         }
+        let assert_slider_visible =
+            || {
+                draw();
+                ui.window().request_redraw();
+                window.draw_if_needed(|renderer| {
+                    let mut pixels = vec![slint::Rgb8Pixel::default(); 800 * 400];
+                    renderer.render(&mut pixels, 800);
+                    let outline_rows: Vec<_> = pixels
+                        .as_chunks::<800>()
+                        .0
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, row)| {
+                            row[600..]
+                                .iter()
+                                .any(|pixel| pixel.r == 255 && pixel.g == 255 && pixel.b == 255)
+                        })
+                        .map(|(y, _)| y)
+                        .collect();
+                    assert!(
+                        !outline_rows.is_empty(),
+                        "the focused slider has a visible outline"
+                    );
+                    assert!(outline_rows[0] > 200 && *outline_rows.last().unwrap() < 398,
+                    "the full slider outline stays inside the settings viewport: {outline_rows:?}");
+                });
+            };
+        assert_slider_visible();
+        navigate_controls(ui.window(), DOWN);
         navigate_controls(ui.window(), LEFT);
         assert_eq!(
             ui.get_pref_ui_scale(),
             1,
             "controller can recover interface size"
         );
+        navigate_controls(ui.window(), UP);
+        assert_slider_visible();
         draw();
         let confirmed = std::rc::Rc::new(std::cell::Cell::new(0));
         let cancelled = std::rc::Rc::new(std::cell::Cell::new(0));

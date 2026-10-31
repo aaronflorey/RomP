@@ -1,8 +1,8 @@
 import { ListView, Locale, Row, ScrollView, Theme } from "theme.slint";
-import { FocusRing, KeyActivator } from "focus.slint";
+import { Button, CheckBox, ComboBox, FocusRing, KeyActivator, LineEdit, Slider, Switch } from "focus.slint";
 import { AchievementItem, AchievementRow } from "achievements.slint";
 import { SlotCard, SlotPicture } from "slots.slint";
-import { Button, CheckBox, ComboBox, LineEdit, ProgressIndicator, Slider, Spinner, Switch } from "std-widgets.slint";
+import { ProgressIndicator, Spinner } from "std-widgets.slint";
 
 export struct SidebarEntry { header: bool, key: string, name: string, initial: string, count: int, icon: image, has-icon: bool, glyph: string, expanded: bool, can-add: bool, editable: bool, note: bool }
 export struct NotificationRow { id: int, title: string, body: string, level: string, when: string, unread: bool }
@@ -82,6 +82,7 @@ component IconButton inherits Rectangle {
     in property <string> tooltip;
     in property <bool> enabled: true;
     callback clicked();
+    forward-focus: keys;
     width: 32px;
     height: 32px;
     border-radius: 8px;
@@ -588,10 +589,10 @@ component Card inherits Rectangle {
                     Text { horizontal-alignment: Locale.start; text: "✓"; color: Theme.text-strong; font-weight: 700; }
                 }
                 if touch.has-hover: Rectangle { background: Theme.hover; }
-                if root.game.focused || keys.has-focus: Rectangle {
-                    border-radius: 8px;
-                    border-width: 3px;
-                    border-color: Theme.accent;
+                if root.game.focused || keys.has-focus: FocusRing {
+                    x: 4px; y: 4px;
+                    width: parent.width - 8px; height: parent.height - 8px;
+                    border-radius: 4px;
                 }
             }
         }
@@ -1328,6 +1329,7 @@ component Breadcrumb inherits Rectangle {
     in property <string> back-label;
     in property <string> current;
     callback back();
+    forward-focus: back-button;
     vertical-stretch: 0;
     height: row.preferred-height;
     row := Row {
@@ -1336,7 +1338,7 @@ component Breadcrumb inherits Rectangle {
         padding-top: 14px;
         padding-bottom: 10px;
         spacing: 4px;
-        IconButton { icon: Locale.rtl ? @image-url("icons/forward.svg") : @image-url("icons/back.svg"); tooltip: @tr("Back"); clicked => { root.back(); } }
+        back-button := IconButton { icon: Locale.rtl ? @image-url("icons/forward.svg") : @image-url("icons/back.svg"); tooltip: @tr("Back"); clicked => { root.back(); } }
         Rectangle {
             width: crumb-text.preferred-width + 16px;
             height: 32px;
@@ -1370,7 +1372,12 @@ component Breadcrumb inherits Rectangle {
 
 component GamePage inherits FocusScope {
     in property <bool> modal-open;
-    changed modal-open => { if !root.modal-open { root.focus(); } }
+    changed modal-open => { if !root.modal-open { root.focus-primary(); } }
+    focus-on-tab-navigation: false;
+    function focus-primary() {
+        if primary-action.visible && primary-action.enabled { primary-action.focus(); }
+        else { breadcrumb.focus(); }
+    }
     in property <string> back-label;
     in property <string> title;
     in property <string> category;
@@ -1423,11 +1430,11 @@ component GamePage inherits FocusScope {
         root.scroll-y = clamp(root.scroll-y, -max(0px, page.content-height - page.visible-height), 0px);
     }
     property <int> viewing: -1;
-    changed viewing => { if root.viewing < 0 { root.focus(); } }
+    changed viewing => { if root.viewing < 0 { root.focus-primary(); } }
     property <bool> banner-from-shot: root.shots.length > 0 && root.shots[0].loaded;
     property <bool> has-banner: root.banner-from-shot || root.has-cover;
-    changed title => { self.viewing = -1; page.content-y = 0; }
-    init => { self.focus(); }
+    changed title => { self.viewing = -1; page.content-y = 0; root.focus-primary(); }
+    init => { root.focus-primary(); }
     capture-key-pressed(event) => {
         if root.viewing >= 0 && event.text == Key.Escape {
             root.viewing = -1;
@@ -1439,11 +1446,6 @@ component GamePage inherits FocusScope {
         }
         if root.viewing >= 0 && event.text == Key.RightArrow {
             root.viewing = min(root.shots.length - 1, root.viewing + 1);
-            return accept;
-        }
-        if root.has-focus && root.viewing < 0 && event.text == Key.Return {
-            if root.downloaded && !root.busy { root.play(); }
-            else if !root.busy && root.playable && root.can-download { root.download(); }
             return accept;
         }
         if root.viewing >= 0 && event.text == Key.Return {
@@ -1462,7 +1464,7 @@ component GamePage inherits FocusScope {
     }
 
     VerticalLayout {
-        Breadcrumb {
+        breadcrumb := Breadcrumb {
             back-label: root.back-label;
             current: root.title;
             back => { root.back(); }
@@ -1528,15 +1530,18 @@ component GamePage inherits FocusScope {
                             padding-top: 8px;
                             alignment: start;
                             spacing: 10px;
-                            if !root.downloaded && !root.busy && root.playable: Button {
-                                text: @tr("Download");
-                                primary: true;
-                                enabled: root.can-download;
-                                clicked => { root.download(); }
-                            }
                             if root.busy: ProgressIndicator { width: 220px; progress: root.progress; }
-                            if root.busy: Button { text: @tr("Cancel"); clicked => { root.cancel(); } }
-                            if root.downloaded && !root.busy: Button { text: @tr("Play"); primary: true; clicked => { root.play(); } }
+                            primary-action := Button {
+                                visible: root.downloaded || root.busy || root.playable;
+                                text: root.busy ? @tr("Cancel") : root.downloaded ? @tr("Play") : @tr("Download");
+                                primary: !root.busy;
+                                enabled: root.busy || root.downloaded || root.can-download;
+                                clicked => {
+                                    if root.busy { root.cancel(); }
+                                    else if root.downloaded { root.play(); }
+                                    else { root.download(); }
+                                }
+                            }
                             if root.downloaded && !root.busy: Button { text: @tr("Delete download"); clicked => { root.delete(); } }
                             if root.show-collections: Button {
                                 text: root.favorite ? @tr("♥ In favorites") : @tr("♡ Add to favorites");
@@ -1679,7 +1684,11 @@ component GamePage inherits FocusScope {
                                 shot-touch := TouchArea { clicked => { root.viewing = i; } }
                                 shot-keys := KeyActivator { activate => { root.viewing = i; } }
                                 if shot-touch.has-hover: Rectangle { background: Theme.hover; }
-                                if shot-keys.has-focus: FocusRing { border-radius: parent.border-radius; }
+                                if shot-keys.has-focus: FocusRing {
+                                    x: 4px; y: 4px;
+                                    width: parent.width - 8px; height: parent.height - 8px;
+                                    border-radius: 4px;
+                                }
                             }
                         }
                     }
@@ -1875,6 +1884,8 @@ component SettingsTab inherits Rectangle {
     in property <string> label;
     in property <bool> selected;
     callback clicked();
+    init => { if root.selected { keys.focus(); } }
+    changed selected => { if root.selected { keys.focus(); } }
     width: tab-text.preferred-width + 24px;
     height: 36px;
     accessible-role: tab;
@@ -1919,7 +1930,8 @@ component LinkButton inherits Rectangle {
 
 component SettingsPage inherits FocusScope {
     in property <bool> modal-open;
-    changed modal-open => { if !root.modal-open { root.focus(); } }
+    changed modal-open => { if !root.modal-open { breadcrumb.focus(); } }
+    focus-on-tab-navigation: false;
     callback open-link(string);
     in property <string> back-label;
     in property <bool> remap-open;
@@ -1973,7 +1985,6 @@ component SettingsPage inherits FocusScope {
     callback show-folder();
     callback section-changed(int);
 
-    init => { self.focus(); }
     key-pressed(event) => {
         if event.text == Key.Escape && !root.remap-open {
             root.back();
@@ -1983,7 +1994,7 @@ component SettingsPage inherits FocusScope {
     }
 
     VerticalLayout {
-        Breadcrumb {
+        breadcrumb := Breadcrumb {
             back-label: root.back-label;
             current: @tr("Settings");
             back => { root.back(); }
@@ -2040,7 +2051,7 @@ component SettingsPage inherits FocusScope {
                                 detail: @tr("Press F11 in a game to switch at any time.");
                                 Switch { checked <=> root.fullscreen; toggled => { root.prefs-changed(); } }
                             }
-                            SettingRow {
+                            volume-row := SettingRow {
                                 divider: true;
                                 label: @tr("Game volume");
                                 detail: round(root.volume) + "%";
@@ -2050,6 +2061,14 @@ component SettingsPage inherits FocusScope {
                                     maximum: 100;
                                     value <=> root.volume;
                                     changed => { root.prefs-changed(); }
+                                    focused => {
+                                        // The native slider's focus point has no height; reveal its labelled row.
+                                        let top = volume-row.absolute-position.y - 8px;
+                                        let bottom = volume-row.absolute-position.y + volume-row.height + 8px;
+                                        let viewport-top = content.absolute-position.y;
+                                        let delta = max(0px, viewport-top - top) - max(0px, bottom - viewport-top - content.visible-height);
+                                        content.content-y = clamp(content.content-y + delta, -max(0px, content.content-height - content.visible-height), 0px);
+                                    }
                                 }
                             }
                             SettingRow {

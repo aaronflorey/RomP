@@ -1,3 +1,4 @@
+import { Button as StandardButton, CheckBox as StandardCheckBox, ComboBox as StandardComboBox, LineEdit as StandardLineEdit, Slider as StandardSlider, Switch as StandardSwitch } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 
 export component KeyActivator inherits FocusScope {
@@ -16,6 +17,131 @@ export component KeyActivator inherits FocusScope {
 }
 
 export component FocusRing inherits Rectangle {
-    border-width: 2px;
-    border-color: Theme.accent;
+    border-radius: Theme.radius;
+    Rectangle {
+        x: -4px;
+        y: -4px;
+        width: parent.width + 8px;
+        height: parent.height + 8px;
+        border-width: 3px;
+        border-radius: root.border-radius + 4px;
+        border-color: Theme.text-strong;
+        Rectangle {
+            x: 3px;
+            y: 3px;
+            width: parent.width - 6px;
+            height: parent.height - 6px;
+            border-width: 1px;
+            border-radius: max(0px, parent.border-radius - 3px);
+            border-color: Theme.background;
+        }
+    }
+}
+
+// Native widgets retain input and accessibility; only their focus decoration changes.
+export component Button inherits Rectangle {
+    in property <string> text <=> control.text;
+    in property <bool> primary <=> control.primary;
+    callback clicked <=> control.clicked;
+    in property <bool> enabled <=> control.enabled;
+    out property <bool> has-focus <=> control.has-focus;
+    forward-focus: control;
+    min-width: control.min-width;
+    min-height: control.min-height;
+    preferred-width: control.preferred-width;
+    preferred-height: control.preferred-height;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    control := StandardButton { width: parent.width; height: parent.height; }
+    if root.has-focus && root.enabled: FocusRing { }
+}
+
+export component CheckBox inherits Rectangle {
+    in property <string> text <=> control.text;
+    in-out property <bool> checked <=> control.checked;
+    callback toggled <=> control.toggled;
+    in property <bool> enabled <=> control.enabled;
+    out property <bool> has-focus <=> control.has-focus;
+    forward-focus: control;
+    min-width: control.min-width;
+    min-height: control.min-height;
+    preferred-width: control.preferred-width;
+    preferred-height: control.preferred-height;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    control := StandardCheckBox { width: parent.width; height: parent.height; }
+    if root.has-focus && root.enabled: FocusRing { }
+}
+
+export component ComboBox inherits Rectangle {
+    in property <[string]> model <=> control.model;
+    in-out property <int> current-index <=> control.current-index;
+    callback selected <=> control.selected;
+    in property <bool> enabled <=> control.enabled;
+    out property <bool> has-focus <=> control.has-focus;
+    forward-focus: control;
+    min-width: control.min-width;
+    min-height: control.min-height;
+    preferred-width: control.preferred-width;
+    preferred-height: control.preferred-height;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    control := StandardComboBox { width: parent.width; height: parent.height; }
+    if root.has-focus && root.enabled: FocusRing { }
+}
+
+export component LineEdit inherits Rectangle {
+    in-out property <string> text <=> control.text;
+    in property <string> placeholder-text <=> control.placeholder-text;
+    in property <InputType> input-type <=> control.input-type;
+    callback accepted <=> control.accepted;
+    callback edited <=> control.edited;
+    in property <bool> enabled <=> control.enabled;
+    out property <bool> has-focus <=> control.has-focus;
+    forward-focus: control;
+    min-width: control.min-width;
+    min-height: control.min-height;
+    preferred-width: control.preferred-width;
+    preferred-height: control.preferred-height;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    control := StandardLineEdit { width: parent.width; height: parent.height; }
+    if root.has-focus && root.enabled: FocusRing { }
+}
+
+export component Slider inherits Rectangle {
+    in property <float> minimum <=> control.minimum;
+    in property <float> maximum <=> control.maximum;
+    in-out property <float> value <=> control.value;
+    callback changed <=> control.changed;
+    callback focused();
+    changed has-focus => { if root.has-focus { root.focused(); } }
+    in property <bool> enabled <=> control.enabled;
+    out property <bool> has-focus <=> control.has-focus;
+    forward-focus: control;
+    min-width: control.min-width;
+    min-height: control.min-height;
+    preferred-width: control.preferred-width;
+    preferred-height: control.preferred-height;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    control := StandardSlider { width: parent.width; height: parent.height; }
+    if root.has-focus && root.enabled: FocusRing { }
+}
+
+export component Switch inherits Rectangle {
+    in property <string> text <=> control.text;
+    in-out property <bool> checked <=> control.checked;
+    callback toggled <=> control.toggled;
+    in property <bool> enabled <=> control.enabled;
+    out property <bool> has-focus <=> control.has-focus;
+    forward-focus: control;
+    min-width: control.min-width;
+    min-height: control.min-height;
+    preferred-width: control.preferred-width;
+    preferred-height: control.preferred-height;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    control := StandardSwitch { width: parent.width; height: parent.height; }
+    if root.has-focus && root.enabled: FocusRing { }
 }
