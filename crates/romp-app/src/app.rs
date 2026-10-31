@@ -173,6 +173,7 @@ fn open_store() -> rusqlite::Result<Store> {
 }
 
 pub fn run(game_mode: bool) -> anyhow::Result<()> {
+    crate::credentials::prepare(game_mode);
     crate::vulkan::start_probe();
     let shared = Shared {
         rt: Runtime::new()?,

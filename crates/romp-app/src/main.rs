@@ -113,10 +113,11 @@ fn main() -> anyhow::Result<()> {
     if let Err(e) = adopted {
         tracing::warn!("moving the old data folder: {e}");
     }
+    let game_mode = gaming_mode::active();
+    scale::set_game_mode(game_mode);
     slint::BackendSelector::new()
         .with_winit_custom_application_handler(mouse::RawMouse)
         .select()?;
-    let game_mode = gaming_mode::active();
     match (args.core, args.rom) {
         (Some(core), Some(rom)) => {
             play::run(core, rom, args.jit, args.vulkan, args.smoke, game_mode)

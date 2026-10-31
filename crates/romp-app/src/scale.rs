@@ -9,7 +9,13 @@ type Target = Box<dyn Fn(Option<WindowId>) -> bool>;
 
 thread_local! {
     static FACTOR: Cell<f32> = const { Cell::new(1.0) };
+    static GAME_MODE: Cell<bool> = const { Cell::new(false) };
     static TARGETS: RefCell<Vec<Target>> = RefCell::default();
+}
+
+pub fn set_game_mode(game_mode: bool) {
+    GAME_MODE.set(game_mode);
+    refresh(None);
 }
 
 pub fn set_factor(factor: f32) {
@@ -55,7 +61,7 @@ fn apply(window: &slint::Window) {
     let Some(system) = window.with_winit_window(|w| w.scale_factor() as f32) else {
         return;
     };
-    let scale = system * FACTOR.get();
+    let scale = effective_factor(system, FACTOR.get(), GAME_MODE.get());
     if (window.scale_factor() - scale).abs() < f32::EPSILON {
         return;
     }
@@ -67,4 +73,27 @@ fn apply(window: &slint::Window) {
         size: physical.to_logical(scale),
     });
     window.request_redraw();
+}
+
+fn effective_factor(system: f32, preference: f32, game_mode: bool) -> f32 {
+    // Gamescope's X11 display can inherit a desktop DPI that is too large for its game viewport.
+    if game_mode {
+        preference
+    } else {
+        system * preference
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn game_mode_uses_the_chosen_scale_without_multiplying_desktop_dpi() {
+        assert_eq!(effective_factor(3.0, 1.0, true), 1.0);
+        assert_eq!(effective_factor(3.0, 1.5, true), 1.5);
+        assert_eq!(effective_factor(2.0, 2.0, true), 2.0);
+        assert_eq!(effective_factor(3.0, 1.0, false), 3.0);
+        assert_eq!(effective_factor(2.0, 1.5, false), 3.0);
+    }
 }

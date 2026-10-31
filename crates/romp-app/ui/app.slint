@@ -1,8 +1,8 @@
-import { Locale, Row, Theme } from "theme.slint";
+import { ListView, Locale, Row, ScrollView, Theme } from "theme.slint";
 import { FocusRing, KeyActivator } from "focus.slint";
 import { AchievementItem, AchievementRow } from "achievements.slint";
 import { SlotCard, SlotPicture } from "slots.slint";
-import { Button, CheckBox, ComboBox, LineEdit, ListView, ProgressIndicator, ScrollView, Slider, Spinner, Switch } from "std-widgets.slint";
+import { Button, CheckBox, ComboBox, LineEdit, ProgressIndicator, Slider, Spinner, Switch } from "std-widgets.slint";
 
 export struct SidebarEntry { header: bool, key: string, name: string, initial: string, count: int, icon: image, has-icon: bool, glyph: string, expanded: bool, can-add: bool, editable: bool, note: bool }
 export struct NotificationRow { id: int, title: string, body: string, level: string, when: string, unread: bool }
@@ -167,7 +167,6 @@ component SetupFrame inherits Rectangle {
     }
     background: Theme.background;
     setup := ScrollView {
-        mouse-drag-pan-enabled: true;
         content-width: self.visible-width;
         content-height: max(self.visible-height, body.preferred-height);
         body := VerticalLayout {

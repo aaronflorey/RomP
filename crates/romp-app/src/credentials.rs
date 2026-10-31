@@ -1,3 +1,18 @@
+#[cfg(target_os = "linux")]
+mod secret_service;
+
+#[cfg(target_os = "linux")]
+pub fn prepare(game_mode: bool) {
+    if game_mode {
+        if let Err(error) = secret_service::prepare() {
+            tracing::warn!(error = %format_args!("{error:#}"), "could not prepare the system credential store");
+        }
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn prepare(_game_mode: bool) {}
+
 pub trait TokenStore: Send + Sync {
     fn load(&self, server: &str) -> Option<String>;
     fn save(&self, server: &str, token: &str) -> Result<(), String>;
@@ -31,6 +46,7 @@ impl TokenStore for Keychain {
             Ok(token) => Some(token),
             Err(keyring::Error::NoEntry) => None,
             Err(error) => {
+                let error = error_cause(&error);
                 tracing::warn!(service = self.service, %error, "could not read saved sign-in");
                 None
             }
@@ -40,7 +56,11 @@ impl TokenStore for Keychain {
     fn save(&self, server: &str, token: &str) -> Result<(), String> {
         keyring::Entry::new(self.service, server)
             .and_then(|e| e.set_password(token))
-            .map_err(|e| tr::tr!("Could not store the sign-in in the keychain: {e}", e))
+            .map_err(|error| {
+                let e = error_cause(&error);
+                tracing::warn!(service = self.service, error = %e, "could not store saved sign-in");
+                tr::tr!("Could not store the sign-in in the keychain: {e}", e)
+            })
     }
 
     fn delete(&self, server: &str) {
@@ -48,6 +68,14 @@ impl TokenStore for Keychain {
             let _ = entry.delete_credential();
         }
     }
+}
+
+fn error_cause(error: &keyring::Error) -> &keyring::Error {
+    // Entry::new replaces initialization failures with NoDefaultStore.
+    keyring::Entry::store_status()
+        .as_ref()
+        .err()
+        .unwrap_or(error)
 }
 
 pub struct Migrating<C, L> {
@@ -98,6 +126,46 @@ impl TokenStore for MemoryTokens {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn unavailable_store_reports_its_initialization_error() {
+        const CHILD: &str = "ROMP_TEST_KEYRING_FAILURE";
+        if std::env::var_os(CHILD).is_some() {
+            tracing_subscriber::fmt()
+                .without_time()
+                .with_ansi(false)
+                .with_writer(std::io::stderr)
+                .init();
+            let tokens = Keychain::app();
+            assert_eq!(tokens.load("https://debug.invalid/"), None);
+            let error = tokens
+                .save("https://debug.invalid/", "ROMP_TEST_SECRET")
+                .unwrap_err();
+            let cause = keyring::Entry::store_status().as_ref().unwrap_err();
+            assert!(error.contains(&cause.to_string()), "{error}");
+            return;
+        }
+
+        // A fresh process isolates keyring's cached initialization from other tests.
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "credentials::tests::unavailable_store_reports_its_initialization_error",
+                "--nocapture",
+            ])
+            .env(CHILD, "1")
+            .env("DBUS_SESSION_BUS_ADDRESS", "unix:path=/")
+            .output()
+            .unwrap();
+        let log = String::from_utf8_lossy(&output.stderr);
+        assert!(output.status.success(), "{log}");
+        assert!(log.contains("could not read saved sign-in"), "{log}");
+        assert!(log.contains("could not store saved sign-in"), "{log}");
+        assert!(log.contains("Platform failure:"), "{log}");
+        assert!(!log.contains("No default store has been set"), "{log}");
+        assert!(!log.contains("ROMP_TEST_SECRET"), "{log}");
+    }
 
     #[test]
     fn a_sign_in_saved_under_the_old_name_moves_to_the_new_one() {
