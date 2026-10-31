@@ -46,7 +46,11 @@ impl CustomApplicationHandler for RawMouse {
         #[cfg(target_os = "linux")]
         let window_system = {
             use slint::winit_030::winit::platform::x11::ActiveEventLoopExtX11;
-            if event_loop.is_x11() { "x11" } else { "wayland" }
+            if event_loop.is_x11() {
+                "x11"
+            } else {
+                "wayland"
+            }
         };
         #[cfg(not(target_os = "linux"))]
         let window_system = {
